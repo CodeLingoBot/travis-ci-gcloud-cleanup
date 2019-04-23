@@ -10,5 +10,7 @@ FROM alpine:latest
 RUN apk --no-cache add ca-certificates curl bash
 
 COPY --from=builder /tmp/gcloud-cleanup/build/linux/amd64/gcloud-cleanup /usr/local/bin/gcloud-cleanup
+COPY --from=builder /tmp/gcloud-cleanup/docker/systemd.service /app/systemd.service
+COPY --from=builder /tmp/gcloud-cleanup/docker/systemd-wrapper /app/systemd-wrapper
 
 CMD ["/usr/local/bin/gcloud-cleanup"]

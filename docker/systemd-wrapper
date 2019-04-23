@@ -1,0 +1,54 @@
+#!/usr/bin/env bash
+set -o errexit
+
+main() {
+  local name="${1:-gcloud-cleanup}"
+
+  docker stop "${name}" &>/dev/null || true
+  docker rm -f "${name}" &>/dev/null || true
+
+  local env_file
+  env_file="$(tfw writeenv travis-gcloud-cleanup)"
+
+  set -o allexport
+  # shellcheck source=/dev/null
+  source "${env_file}"
+
+  if [ "xx${GCLOUD_CLEANUP_INSTANCE_FILTERS}" != "xx" ]; then
+    instance_filters=$(echo ${GCLOUD_CLEANUP_INSTANCE_FILTERS} | base64 --decode)
+    GCLOUD_CLEANUP_INSTANCE_FILTERS="${instance_filters}"
+    sed -i '0,/GCLOUD_CLEANUP_INSTANCE_FILTERS/{/GCLOUD_CLEANUP_INSTANCE_FILTERS/d;}' ${env_file}
+    builtin echo "GCLOUD_CLEANUP_INSTANCE_FILTERS=${instance_filters}" | tee -a "${env_file}"
+  fi
+
+  exec docker run \
+    --rm \
+    --name "${name}" \
+    --hostname "$(hostname)" \
+    --userns host \
+    -v /var/tmp:/var/tmp \
+    -v /var/run:/var/run \
+    --env-file "${env_file}" \
+    "${TRAVIS_GCLOUD_CLEANUP_SELF_IMAGE}"
+}
+
+__fetch_gce_zone() {
+  curl -sSL \
+    "http://metadata.google.internal/computeMetadata/v1/instance/zone" \
+    -H "Metadata-Flavor: Google" |
+    awk -F/ '{ print $NF }'
+}
+
+__build_librato_source() {
+  local host_name="${1}"
+  local name="${2}"
+
+  if [[ "${name}" == "gcloud-cleanup" ]]; then
+    echo "${host_name}"
+    return
+  fi
+
+  echo "${host_name}-${name/gcloud-cleanup-/}"
+}
+
+main "$@"
