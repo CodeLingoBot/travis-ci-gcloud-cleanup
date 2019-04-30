@@ -103,7 +103,7 @@ func (ic *instanceCleaner) Run() error {
 }
 
 func (ic *instanceCleaner) fetchInstancesToDelete(ctx context.Context, instChan chan *instanceDeletionRequest, errChan chan error) {
-	ctx, span := trace.StartSpan(ctx, "FetchInstancesToDelete")
+	innerctx, span := trace.StartSpan(innerctx, "FetchInstancesToDelete")
 	defer span.End()
 
 	defer close(errChan)
@@ -217,7 +217,7 @@ func (ic *instanceCleaner) fetchInstancesToDelete(ctx context.Context, instChan 
 }
 
 func (ic *instanceCleaner) deleteInstance(ctx context.Context, inst *compute.Instance) error {
-	ctx, span := trace.StartSpan(ctx, "DeleteInstance")
+	innerctx, span := trace.StartSpan(innerctx, "DeleteInstance")
 	defer span.End()
 
 	if ic.noop {
@@ -233,8 +233,8 @@ func (ic *instanceCleaner) deleteInstance(ctx context.Context, inst *compute.Ins
 		}
 	}
 
-	ic.apiRateLimit(ctx)
-	_, err := ic.cs.Instances.Delete(ic.projectID, filepath.Base(inst.Zone), inst.Name).Context(ctx).Do()
+	ic.apiRateLimit(innerctx)
+	_, err := ic.cs.Instances.Delete(ic.projectID, filepath.Base(inst.Zone), inst.Name).Context(innerctx).Do()
 	return err
 }
 
@@ -243,7 +243,7 @@ func (ic *instanceCleaner) l2met(name string, n int, msg string) {
 }
 
 func (ic *instanceCleaner) archiveSerialConsoleOutput(ctx context.Context, inst *compute.Instance) error {
-	ctx, span := trace.StartSpan(ctx, "archiveSerialConsoleOutput")
+	innerctx, span := trace.StartSpan(innerctx, "archiveSerialConsoleOutput")
 	defer span.End()
 
 	if ic.sc == nil {
@@ -278,7 +278,7 @@ func (ic *instanceCleaner) archiveSerialConsoleOutput(ctx context.Context, inst 
 
 	key := fmt.Sprintf("serial-console-output/%s.txt", inst.Name)
 	obj := ic.sc.Bucket(ic.archiveBucket).Object(key)
-	wc := obj.NewWriter(ic.ctx)
+	wc := obj.NewWriter(ic.innerctx)
 
 	_, err := io.Copy(wc, strings.NewReader(accum))
 	if err != nil {
@@ -302,7 +302,7 @@ func (ic *instanceCleaner) archiveSerialConsoleOutput(ctx context.Context, inst 
 }
 
 func (ic *instanceCleaner) apiRateLimit(ctx context.Context) error {
-	ctx, span := trace.StartSpan(ctx, "apiRateLimit")
+	innerctx, span := trace.StartSpan(innerctx, "apiRateLimit")
 	defer span.End()
 
 	ic.log.Debug("waiting for rate limiter tick")
